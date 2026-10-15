@@ -1,0 +1,40 @@
+# ChronosMatch Roadmap
+
+## Week 1 — Architecture exploration and baseline
+
+**Completed in this verification pass**
+
+- Reviewed the existing CLI, core serialization and ring-buffer modules,
+  matching engine, benchmark scripts, producer/consumer, terminal dashboard,
+  HTML mock-up, tests, and dependency files.
+- Ran baseline tests and Python compilation on Python 3.14.6.
+- Confirmed that the HTML page generates illustrative values locally and is
+  not connected to live engine metrics.
+
+## Week 2 — Validation, reliability, regression coverage, and documentation
+
+**Completed in this verification pass**
+
+- The current implementation validates serialized order fields, validates
+  ring-buffer configuration and counters, and synchronizes cooperating
+  processes with OS-level locks.
+- Regression tests cover order round trips and invalid records, ring-buffer
+  capacity/FIFO/wraparound and inter-process communication, matching behavior,
+  and producer-to-buffer-to-consumer processing.
+- Demo and dashboard workers are stopped and joined, and mapped resources are
+  closed. Benchmark output is reported as a local measurement rather than a
+  performance guarantee.
+- The verification CLI now exits with a failure status if a correctness check
+  fails. Setup, run commands, and limitations are documented in the README.
+
+## Current limitations and planned follow-up
+
+- The Python engine is an educational simulation, not live trading software
+  or an end-to-end zero-copy pipeline.
+- `ui/web_dashboard.html` remains a standalone visual mock-up; it is not
+  connected to Python engine metrics.
+- The separate producer/consumer scripts use a finite idle timeout instead of
+  an explicit shutdown message.
+- The optional Cython extension was not built or tested with Python 3.14.6.
+- Add a POSIX inter-process test run and validate the optional Cython extension
+  in a separate toolchain before making compatibility or performance claims.
