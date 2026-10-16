@@ -1,40 +1,231 @@
-# ChronosMatch Roadmap
+# ChronosMatch — Project Roadmap
 
-## Week 1 — Architecture exploration and baseline
+## Zero-Copy High-Frequency Trading Engine
 
-**Completed in this verification pass**
+**Project:** ChronosMatch  
+**Language Target:** Python 3.14.6  
+**Repository:** [Sreevalli20/infotac1](https://github.com/Sreevalli20/infotac1)  
+**Development Approach:** Incremental implementation, testing, performance measurement, and documentation.
 
-- Reviewed the existing CLI, core serialization and ring-buffer modules,
-  matching engine, benchmark scripts, producer/consumer, terminal dashboard,
-  HTML mock-up, tests, and dependency files.
-- Ran baseline tests and Python compilation on Python 3.14.6.
-- Confirmed that the HTML page generates illustrative values locally and is
-  not connected to live engine metrics.
+---
 
-## Week 2 — Validation, reliability, regression coverage, and documentation
+## 1. Project Overview
 
-**Completed in this verification pass**
+ChronosMatch is a high-frequency trading engine project focused on efficient order processing, price-time priority matching, memory-conscious data handling, and low-latency performance evaluation.
 
-- The current implementation validates serialized order fields, validates
-  ring-buffer configuration and counters, and synchronizes cooperating
-  processes with OS-level locks.
-- Regression tests cover order round trips and invalid records, ring-buffer
-  capacity/FIFO/wraparound and inter-process communication, matching behavior,
-  and producer-to-buffer-to-consumer processing.
-- Demo and dashboard workers are stopped and joined, and mapped resources are
-  closed. Benchmark output is reported as a local measurement rather than a
-  performance guarantee.
-- The verification CLI now exits with a failure status if a correctness check
-  fails. Setup, run commands, and limitations are documented in the README.
+The project explores binary order serialization, memory-mapped ring-buffer techniques, simulated market orders, matching-engine behavior, and performance metrics.
 
-## Current limitations and planned follow-up
+The roadmap prioritizes correctness and reproducible measurements before making performance claims.
 
-- The Python engine is an educational simulation, not live trading software
-  or an end-to-end zero-copy pipeline.
-- `ui/web_dashboard.html` remains a standalone visual mock-up; it is not
-  connected to Python engine metrics.
-- The separate producer/consumer scripts use a finite idle timeout instead of
-  an explicit shutdown message.
-- The optional Cython extension was not built or tested with Python 3.14.6.
-- Add a POSIX inter-process test run and validate the optional Cython extension
-  in a separate toolchain before making compatibility or performance claims.
+## 2. Project Objectives
+
+- Develop and validate the core order-processing workflow.
+- Review binary order serialization and data representation.
+- Evaluate memory-mapped ring-buffer behavior.
+- Verify price-time priority matching logic.
+- Validate simulated market-order processing.
+- Measure latency and throughput using repeatable benchmarks.
+- Improve input validation, error handling, and process synchronization.
+- Maintain Python 3.14.6 compatibility.
+- Document architecture, limitations, test results, and future improvements.
+
+## 3. Development Roadmap
+
+### Week 1 — Architecture Review and Baseline
+
+**Focus:** Understand the existing codebase and establish a development baseline.
+
+Tasks:
+- Review the repository structure and existing implementation.
+- Identify the responsibilities of the engine, serialization, ring-buffer, testing, and dashboard components.
+- Review the order-processing and matching workflow.
+- Inspect the existing benchmark and metrics implementation.
+- Prepare repository-level `.gitignore` and version-control setup.
+- Review and organize project documentation.
+- Identify potential validation, synchronization, and performance-measurement issues.
+
+**Expected deliverables:**
+- Initial architecture review.
+- Documented baseline and known limitations.
+- Organized project files and Git version-control setup.
+- Initial review of existing tests and benchmark code.
+
+**Completion criteria:**
+- The main modules and their responsibilities are documented.
+- Initial project changes are committed.
+- Remaining issues are recorded for follow-up.
+
+### Week 2 — Correctness, Validation, and Cleanup
+
+**Focus:** Strengthen reliability before performance optimization.
+
+Tasks:
+- Verify compatibility with Python 3.14.6.
+- Test binary order serialization and deserialization.
+- Validate order fields, numeric boundaries, and invalid inputs.
+- Reject non-finite numeric values such as NaN and infinity where appropriate.
+- Test empty, full, and boundary conditions in the ring buffer.
+- Verify price-time priority and matching behavior.
+- Review synchronization when the ring buffer or other shared state is accessed across processes.
+- Improve exception handling and ensure failures are reported clearly.
+- Clean up generated files and align documentation with the actual implementation.
+
+**Expected deliverables:**
+- Expanded unit and edge-case tests.
+- Improved input validation.
+- Documented synchronization design and limitations.
+- Cleaner repository and consistent documentation.
+
+**Completion criteria:**
+- Relevant tests pass in the target Python environment.
+- Invalid inputs are handled predictably.
+- Known limitations are documented rather than hidden.
+- Test failures are visible through appropriate exit codes.
+
+### Week 3 — Performance Measurement and Optimization
+
+**Focus:** Establish reproducible performance results.
+
+Tasks:
+- Review benchmark scripts and their measurement methodology.
+- Separate initialization time from steady-state processing time.
+- Measure order-processing latency and throughput.
+- Record environment details and workload parameters.
+- Evaluate ring-buffer and serialization overhead.
+- Investigate unnecessary allocations and data copying.
+- Compare performance before and after each optimization.
+- Report median and tail latency percentiles where measurement quality permits.
+
+**Expected deliverables:**
+- Repeatable benchmark commands.
+- Benchmark results with environment and workload details.
+- Documented optimization experiments.
+- Evidence-based performance comparisons.
+
+**Completion criteria:**
+- Benchmarks can be repeated using documented steps.
+- Results are recorded without inventing or assuming performance figures.
+- Every optimization is checked against correctness tests.
+
+### Week 4 — Integration, Documentation, and Final Validation
+
+**Focus:** Prepare a reliable and clearly documented project release.
+
+Tasks:
+- Run the available test suite and resolve confirmed defects.
+- Verify integration between the engine, benchmark tools, and dashboard.
+- Confirm that the dashboard accurately represents the available metrics.
+- Review Python 3.14.6 compatibility.
+- Document setup, execution, testing, and benchmarking instructions.
+- Update the project README and roadmap to reflect actual implementation status.
+- Review Git-tracked files for credentials, local environments, and generated artifacts.
+- Record known limitations and potential future improvements.
+
+**Expected deliverables:**
+- Updated project documentation.
+- Verified test and benchmark instructions.
+- Consistent repository structure.
+- Final validation report and future-work list.
+
+**Completion criteria:**
+- Documented commands match the actual implementation.
+- Available tests and checks have recorded outcomes.
+- Remaining limitations are disclosed.
+- The repository is prepared for review.
+
+---
+
+## 4. Technical Workstreams
+
+### A. Order Serialization
+
+- Validate the binary order format.
+- Verify serialization and deserialization consistency.
+- Test invalid values, boundary values, and malformed data.
+- Document the format and its constraints.
+
+### B. Ring Buffer and Memory Handling
+
+- Review the memory-mapped ring-buffer implementation.
+- Test empty, full, and wraparound conditions.
+- Evaluate shared-state access and synchronization requirements.
+- Measure copying and allocation overhead before claiming zero-copy behavior.
+
+### C. Matching Engine
+
+- Verify price-time priority.
+- Test order insertion, matching, and remaining quantities.
+- Validate simulated market orders against expected outcomes.
+- Add regression tests for discovered defects.
+
+### D. Benchmarking and Metrics
+
+- Measure latency and throughput under defined workloads.
+- Record test environment and configuration.
+- Use repeatable workloads and multiple runs where appropriate.
+- Document measurement limitations and avoid unsupported performance claims.
+
+### E. Dashboard and Documentation
+
+- Review the existing HTML dashboard.
+- Confirm that displayed metrics correspond to available engine outputs.
+- Document setup, usage, architecture, and troubleshooting.
+- Keep documentation synchronized with the implemented code.
+
+---
+
+## 5. Quality and Validation Strategy
+
+The following checks will be performed as the relevant components become available:
+
+1. **Unit testing:** Verify individual functions and modules.
+2. **Edge-case testing:** Check invalid inputs, boundary values, and empty or full buffers.
+3. **Integration testing:** Verify interactions between serialization, buffering, matching, and reporting components.
+4. **Compatibility testing:** Run relevant checks with Python 3.14.6.
+5. **Benchmark validation:** Repeat measurements under documented conditions.
+6. **Repository review:** Exclude credentials, local virtual environments, caches, and unrelated generated files.
+
+A feature is considered complete only after its implementation and relevant validation have been checked.
+
+---
+
+## 6. Current Status
+
+| Area | Status |
+|---|---|
+| Existing project architecture review | Initial review |
+| Week 1 roadmap and documentation | In progress |
+| Git and repository preparation | In progress |
+| Python 3.14.6 compatibility | To be verified |
+| Input validation and edge-case tests | Planned for Week 2 |
+| Process synchronization review | Planned for Week 2 |
+| Repeatable performance benchmarks | Planned for Week 3 |
+| Integration and final validation | Planned for Week 4 |
+
+*Status should be updated based on actual test results, commits, and implementation evidence.*
+
+## 7. Risks and Mitigation
+
+- **Incorrect matching behavior:** Add targeted tests for price-time priority and order quantities.
+- **Invalid numeric input:** Validate numeric fields and reject unsupported values.
+- **Shared-memory concurrency issues:** Document ownership and synchronization assumptions; test concurrent access where applicable.
+- **Unreliable performance claims:** Use repeatable workloads and document measurement conditions.
+- **Environment incompatibility:** Verify the project against Python 3.14.6.
+- **Documentation drift:** Update setup instructions and status after meaningful implementation changes.
+
+## 8. Future Enhancements
+
+Potential future work, subject to the project scope, includes:
+
+- More comprehensive market-data simulation.
+- Additional stress and concurrency tests.
+- Improved benchmark reporting and visualization.
+- Profiling-driven memory and latency optimization.
+- Stronger automated validation in continuous integration.
+- More detailed architecture and performance documentation.
+
+## 9. Project Completion Goal
+
+The goal is to deliver a maintainable and testable trading-engine prototype with a clearly documented architecture, validated order-processing behavior, reproducible performance measurements, and transparent limitations.
+
+Correctness, repeatability, and evidence-based optimization take priority over unverified claims of production readiness or ultra-low latency.
