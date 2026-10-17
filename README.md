@@ -1,146 +1,234 @@
 # ChronosMatch — Zero-Copy High-Frequency Trading Engine
 
-**A low-latency trading engine focused on efficient data processing, performance measurement, and high-frequency trading system architecture.**
+ChronosMatch is an educational Python prototype for a simulated order-processing
+pipeline. It explores binary order records, a memory-mapped single-producer /
+single-consumer (SPSC) ring buffer, price-time-priority matching, generated
+market orders, local performance measurements, and a terminal dashboard.
 
-## Overview
+Despite the project title, the Python pipeline is **not end-to-end zero-copy**:
+orders are serialized into the ring buffer and reconstructed as Python
+`Order` objects by the consumer. This project is for simulation and learning;
+it is not live trading software and makes no production or latency guarantees.
 
-ChronosMatch is a high-frequency trading engine project focused on exploring zero-copy data handling and low-latency system design. The project aims to establish a foundation for efficient market-data processing, order handling, and performance analysis.
+## Requirements
 
-The development process follows a structured roadmap, with implementation, testing, and documentation progressing incrementally.
+- Python **3.14.6** (the Python implementation has been run on Windows with
+  this version).
+- `pip`.
+- PowerShell for the commands below.
 
-## Objectives
+Runtime dependencies are listed in `hft_engine\requirements.txt`. The test
+dependency is listed separately in `hft_engine\requirements-dev.txt`. The
+optional Cython extension is not required for the Python application.
 
-- Explore zero-copy techniques to reduce unnecessary data copying.
-- Build a foundation for low-latency market-data processing.
-- Develop modular components for trading-engine functionality.
-- Measure and evaluate execution performance.
-- Maintain a clear development roadmap and reproducible test workflow.
+## Setup
 
-## Project Structure
+Open PowerShell in the repository root (the directory containing this README):
 
-```text
-ChronosMatch-Zero-Copy-High-Frequency-Trading-Engine/
-├── .gitignore
-├── README.md
-├── ChronosMatch-Roadmap/
-└── hft_engine/
-    ├── ui/
-    │   └── web_dashboard.html
-    └── ...
+```powershell
+python --version
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r .\hft_engine\requirements-dev.txt
+Set-Location .\hft_engine
 ```
 
-*Note: The structure above highlights the known project directories. Additional files and modules may exist in the repository.*
+`python --version` should report `Python 3.14.6`. If PowerShell blocks virtual
+environment activation, select the project `.venv` interpreter in VS Code or
+invoke it directly as `..\.venv\Scripts\python.exe` while in `hft_engine`.
 
-## Core Areas
+## Run the application
 
-### 1. Trading Engine
+Run commands from the `hft_engine` directory:
 
-The engine is the main development area for exploring efficient data processing and low-latency trading-system components.
+```powershell
+# Binary order round-trip smoke check
+python main.py struct-test
 
-### 2. Web Dashboard
+# mmap ring-buffer full/empty smoke check
+python main.py ring-test
 
-The project includes a web dashboard interface intended to support visibility into engine-related information. Its current capabilities should be verified against the implemented code.
+# Matching-engine correctness checks and a local latency sample
+python main.py verify
 
-### 3. Roadmap and Development
+# Integrated producer -> ring buffer -> consumer -> matching engine
+python scripts/run_demo.py --duration 2 --target-ops 50000
 
-The `ChronosMatch-Roadmap` directory contains project planning materials used to guide implementation and track development progress.
+# Transport and serialization benchmark; rates are measured on this machine
+python main.py audit --orders 10000
 
-### 4. Testing and Performance
-
-Testing and benchmarking will be used to validate functionality and assess performance as the implementation evolves.
-
-## Technology Stack
-
-The exact stack depends on the existing implementation. The repository includes a web dashboard and an engine codebase. Update this section as the implementation is verified.
-
-- **Version control:** Git and GitHub
-- **Dashboard:** HTML-based web interface
-- **Engine:** Existing implementation in `hft_engine/`
-- **Testing and benchmarking:** To be documented based on verified project tools
-
-## Getting Started
-
-### Prerequisites
-
-Install or configure the tools required by the existing engine implementation. Check the project files and dependencies before installing additional software.
-
-### Clone the Repository
-
-```bash
-git clone https://github.com/Sreevalli20/infotac1.git
-cd infotac1
+# Live terminal dashboard
+python main.py dashboard --duration 5 --target-ops 50000
 ```
 
-### Explore the Project
+The smoke checks print `PASS` messages. The demo prints actual order, trade,
+volume, drop, and timing counts from its run. The random workload is not seeded,
+so counts and measurements can vary. No fixed throughput or latency value is
+expected.
 
-Review the roadmap and engine directories before running the application.
+### Separate-process producer and consumer
+
+For a Windows PowerShell session using the same local IPC file, start the
+consumer in one terminal:
+
+```powershell
+Set-Location <path-to-repository>\hft_engine
+python scripts/run_consumer.py --path C:\Temp\chronosmatch.rb --timeout 60
+```
+
+In a second terminal, start the producer with that same path:
+
+```powershell
+Set-Location <path-to-repository>\hft_engine
+python scripts/run_producer.py --path C:\Temp\chronosmatch.rb --duration 10 --target-ops 50000
+```
+
+Replace `<path-to-repository>` with the actual repository path. The producer
+creates or truncates the ring-buffer file, so do not start a producer against a
+file containing data you need to preserve. The consumer exits after its
+configured idle timeout; it does not receive a dedicated producer shutdown
+message. Use `Ctrl+C` to stop it sooner.
+
+## Tests and checks
+
+Run these from `hft_engine`:
+
+```powershell
+python -m pytest -q
+python -m compileall -q .
+```
+
+The tests cover:
+
+- BUY and SELL binary order round trips, field bounds, and malformed records.
+- Ring-buffer empty/full behavior, FIFO ordering, wraparound, malformed slots,
+  cleanup, and Windows spawned-process synchronization.
+- Best-price and FIFO matching, partial fills, residual orders, and invalid
+  submissions.
+- Producer-to-buffer-to-matching-engine integration, stop requests, and empty
+  or invalid metric inputs.
+- A regression check that the matching verification command returns a failing
+  process status if a check fails.
+
+The CLI matching verification is also available with `python main.py verify`.
+It reports a local 100,000-submission latency sample; its observed figures are
+measurements, not pass/fail performance thresholds.
+
+## Project layout
 
 ```text
-ChronosMatch-Roadmap/
+ChronosMatch-Roadmap             Development plan and progress
 hft_engine/
+├── main.py                      Unified command-line interface
+├── requirements.txt             Runtime dependency pin
+├── requirements-dev.txt         Runtime dependencies plus pytest
+├── core/
+│   ├── constants.py             Shared format and runtime defaults
+│   ├── order_struct.py          Order validation and binary serialization
+│   ├── ring_buffer.py           mmap-backed SPSC ring buffer
+│   ├── firehose.py              Async simulated order producer
+│   └── metrics.py               Latency and throughput counters
+├── engine/
+│   └── limit_order_book.py      Python price-time-priority matching engine
+├── bench/
+│   ├── engine_verify.py         Matching checks and latency sampling
+│   └── ipc_audit.py             Transport/serialization measurements
+├── scripts/
+│   ├── run_demo.py              Integrated single-process demo
+│   ├── run_producer.py          Separate-process producer
+│   └── run_consumer.py          Separate-process consumer
+├── tests/                       Pytest regression tests
+├── ui/
+│   ├── dashboard.py             Live terminal dashboard
+│   └── web_dashboard.html       Standalone visual simulation
+└── cython_src/
+    └── lob.pyx                  Experimental optional Cython LOB
 ```
 
-### Run the Project
+## Architecture and limitations
 
-Follow the setup and execution instructions defined by the actual engine implementation and its dependency files. The precise startup command should be documented after confirming the current configuration.
+### Binary orders
 
-## Week 1 Progress
+Each order occupies 21 bytes using the `=QdIb` struct format:
 
-During Week 1, the focus was on understanding the project structure and establishing the initial development baseline.
+| Field | Encoding | Size |
+|---|---|---:|
+| `order_id` | Unsigned 64-bit integer | 8 bytes |
+| `price` | 64-bit floating-point number | 8 bytes |
+| `quantity` | Unsigned 32-bit integer | 4 bytes |
+| `side` | Signed 8-bit integer (`+1` BUY, `-1` SELL) | 1 byte |
 
-- Reviewed the existing project directories.
-- Prepared the root `.gitignore` to exclude unnecessary files and sensitive configuration.
-- Checked staged changes for whitespace and formatting issues.
-- Prepared the initial Git commit and GitHub version-control workflow.
-- Reviewed the roadmap as a foundation for subsequent development.
+Prices must be finite and positive, quantities must be positive and fit in
+their binary field, and identifiers must fit in an unsigned 64-bit field. The
+format uses native byte order, so files are intended for cooperating processes
+on the same host rather than as a portable network protocol.
 
-**Next milestone:** Validate the initial implementation, establish a reproducible test baseline, and document verified functionality and performance measurements.
+### Ring buffer
 
-## Development Roadmap
+The mmap file has a 16-byte header followed by fixed-width order slots. `put`
+returns `False` if the buffer is full; `get` returns `None` if it is empty. Calls
+serialize access using a thread lock and an OS-level lock for cooperating
+processes (a named mutex on Windows and `flock` on POSIX). Participants must use
+the same backing path and capacity. The intended configuration is one producer
+and one consumer.
 
-The project will progress through the milestones defined in `ChronosMatch-Roadmap`. Development priorities include:
+### Matching and measurement
 
-1. Establish and verify the existing engine baseline.
-2. Validate the main processing workflow.
-3. Implement and test performance-oriented improvements.
-4. Measure latency and throughput using repeatable benchmarks.
-5. Document results, limitations, and future improvements.
+The Python limit order book matches at the resting order’s price, prioritizes
+the best available price, and preserves FIFO order at equal prices. Partial
+fills leave the remaining quantity on the book. Benchmark results depend on
+Python, platform, workload, and system load; compare runs only under similar
+conditions. The transport benchmark methods do not have identical allocation
+costs and do not demonstrate that mmap is faster or that the complete pipeline
+avoids copying.
 
-The exact milestone completion status should be updated as implementation and testing are completed.
+### Dashboards and optional extension
 
-## Testing and Benchmarking
+- `ui\dashboard.py` displays current in-process demo metrics in the terminal.
+- `ui\web_dashboard.html` is a browser-only visual mock-up: its generated
+  prices, trades, and latency values are not connected to the Python engine.
+- `cython_src\lob.pyx` is experimental, is not used by the Python CLI, and has
+  not been built or validated with Python 3.14.6. No Cython performance claim
+  is made.
 
-Performance claims should be supported by repeatable measurements. Future benchmark documentation should include:
+## Troubleshooting
 
-- Test environment and configuration
-- Input workload and dataset size
-- Throughput measurements
-- Latency measurements, including percentile values where available
-- Comparison methodology and observed results
+- **Import error:** Confirm the current directory is `hft_engine`, activate
+  `.venv`, and install `..\hft_engine\requirements-dev.txt` from the repository
+  root (or `requirements-dev.txt` when inside `hft_engine`).
+- **Unexpected Python version:** Check `python --version` and select the Python
+  3.14.6 `.venv` interpreter in VS Code.
+- **Consumer cannot find the ring file:** Start the consumer with the exact
+  path passed to the producer. The consumer waits up to 10 seconds for the
+  file to be created.
+- **Stale or incompatible ring file:** Stop both processes. The producer
+  initializes the file and resets its contents when it starts.
+- **Optional Cython build fails:** Cython and a compatible native compiler are
+  required; the extension is optional and is not needed for the Python CLI.
 
-No benchmark figures are claimed in this README until they have been measured and verified.
+## Development progress
 
-## Security
+The project roadmap tracks planned and completed work. Do not infer that a
+commit or task happened on a particular date from the week labels. Update
+progress based on work and validation actually performed; do not backdate
+commits or present local benchmark readings as guaranteed results.
 
-- Do not commit API keys, credentials, or private configuration files.
-- Keep local virtual environments and generated caches out of version control.
-- Review staged files before committing changes.
-- Use synthetic or appropriately authorized data for development and testing.
+See [ChronosMatch-Roadmap](./ChronosMatch-Roadmap) for the current plan.
 
-## Contributing
+## Security and data
 
-1. Review the project roadmap.
-2. Create a branch for your changes.
-3. Make focused changes and test them.
-4. Review the diff before committing.
-5. Document new functionality and any benchmark results.
+- Do not commit access tokens, credentials, private keys, or local `.env` files.
+- Use simulated orders; this project does not connect to an exchange or perform
+  real trades.
+- Review the staged file list before committing, especially local configuration
+  and generated artifacts.
 
 ## Author
 
-**Kommavarapu Kameswari Sreevalli**
-
+**Kommavarapu Kameswari Sreevalli**  
 GitHub: [@Sreevalli20](https://github.com/Sreevalli20)
 
 ## License
 
-A license has not yet been specified. Add a license file before distributing the project under specific reuse terms.
+No license is currently specified. Add a license before redistributing this
+project under particular reuse terms.
