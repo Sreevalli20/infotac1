@@ -66,6 +66,21 @@ volume, drop, and timing counts from its run. The random workload is not seeded,
 so counts and measurements can vary. No fixed throughput or latency value is
 expected.
 
+## Current verification status
+
+The current Python implementation has been checked locally on Windows with
+Python 3.14.6:
+
+- `python -m pytest -q` — **41 tests passed**.
+- `python -m compileall -q .` — completed successfully.
+- The tests cover binary-order validation and round trips, ring-buffer
+  wraparound and spawned-process synchronization, matching behavior, and
+  producer/buffer/engine integration.
+
+These checks do not cover the optional Cython extension or establish benchmark
+guarantees. The Cython extension has not been built, and the HTML dashboard is
+not connected to live engine metrics.
+
 ### Separate-process producer and consumer
 
 For a Windows PowerShell session using the same local IPC file, start the
