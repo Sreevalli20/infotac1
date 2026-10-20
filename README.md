@@ -1,29 +1,48 @@
 # ChronosMatch — Zero-Copy High-Frequency Trading Engine
 
-ChronosMatch is an educational Python prototype for a simulated order-processing
-pipeline. It explores binary order records, a memory-mapped single-producer /
-single-consumer (SPSC) ring buffer, price-time-priority matching, generated
-market orders, local performance measurements, and a terminal dashboard.
+ChronosMatch is an educational Python prototype that simulates an order
+processing pipeline. It brings together fixed-width binary order records, an
+`mmap`-backed single-producer/single-consumer (SPSC) ring buffer, a
+price-time-priority limit order book, a synthetic order producer, local
+performance measurements, and a terminal dashboard.
 
-Despite the project title, the Python pipeline is **not end-to-end zero-copy**:
-orders are serialized into the ring buffer and reconstructed as Python
-`Order` objects by the consumer. This project is for simulation and learning;
-it is not live trading software and makes no production or latency guarantees.
+The title reflects the project's exploration of zero-copy techniques, not a
+claim about the complete Python pipeline. Orders are packed into the ring
+buffer and reconstructed as Python objects by the consumer. This is not a live
+trading system, does not connect to an exchange, and provides no production or
+latency guarantees.
+
+## Features
+
+- Validated BUY and SELL order model and fixed-width binary serialization.
+- File-backed memory mapping with FIFO, full/empty, wraparound, and cooperating
+  process synchronization support.
+- Price-time-priority matching, resting-price execution, partial fills, and
+  residual orders.
+- Asynchronous synthetic order generation, with integrated and separate
+  producer/consumer entry points.
+- In-process latency and rolling throughput measurements.
+- Matching verification, transport/serialization audit, and ANSI terminal
+  dashboard.
+- Regression tests for serialization, ring-buffer behavior, matching, and
+  pipeline integration.
+
+See [features.md](./features.md) for a detailed description of the implemented
+features and known boundaries.
 
 ## Requirements
 
-- Python **3.14.6** (the Python implementation has been run on Windows with
-  this version).
+- Python **3.14.6** is the documented and previously tested version.
 - `pip`.
-- PowerShell for the commands below.
+- Windows PowerShell (commands below use PowerShell syntax).
 
-Runtime dependencies are listed in `hft_engine\requirements.txt`. The test
-dependency is listed separately in `hft_engine\requirements-dev.txt`. The
-optional Cython extension is not required for the Python application.
+Runtime dependencies are pinned in `hft_engine\requirements.txt`. The
+development requirements include pytest. The experimental Cython source is
+optional and is not needed to use the Python application.
 
 ## Setup
 
-Open PowerShell in the repository root (the directory containing this README):
+Open PowerShell in the repository root—the directory containing this README:
 
 ```powershell
 python --version
@@ -33,80 +52,87 @@ python -m pip install -r .\hft_engine\requirements-dev.txt
 Set-Location .\hft_engine
 ```
 
-`python --version` should report `Python 3.14.6`. If PowerShell blocks virtual
-environment activation, select the project `.venv` interpreter in VS Code or
-invoke it directly as `..\.venv\Scripts\python.exe` while in `hft_engine`.
+The version command should report `Python 3.14.6`. If the `python` command
+selects a different interpreter, create the virtual environment using the
+installed Python 3.14.6 executable, then select `.venv` as the VS Code
+interpreter. If PowerShell blocks environment activation, select the `.venv`
+interpreter in VS Code or invoke it directly from `hft_engine`:
+
+```powershell
+..\.venv\Scripts\python.exe --version
+```
+
+Prefix each Python command with `..\.venv\Scripts\python.exe` instead of
+`python` when using this direct invocation.
 
 ## Run the application
 
-Run commands from the `hft_engine` directory:
+Run the following from the `hft_engine` directory:
 
 ```powershell
-# Binary order round-trip smoke check
+# Binary order serialization smoke test
 python main.py struct-test
 
-# mmap ring-buffer full/empty smoke check
+# mmap ring-buffer smoke test
 python main.py ring-test
 
-# Matching-engine correctness checks and a local latency sample
+# Matching correctness checks and an actual local latency sample
 python main.py verify
 
 # Integrated producer -> ring buffer -> consumer -> matching engine
 python scripts/run_demo.py --duration 2 --target-ops 50000
 
-# Transport and serialization benchmark; rates are measured on this machine
+# Transport and serialization benchmark
 python main.py audit --orders 10000
 
-# Live terminal dashboard
+# ANSI terminal dashboard
 python main.py dashboard --duration 5 --target-ops 50000
 ```
 
-The smoke checks print `PASS` messages. The demo prints actual order, trade,
-volume, drop, and timing counts from its run. The random workload is not seeded,
-so counts and measurements can vary. No fixed throughput or latency value is
-expected.
+The smoke tests print `PASS` messages if successful. The demo reports counts
+and measurements from that run; its synthetic workload is random and results
+can vary. The target operation rate is a target, not a throughput guarantee.
+The audit measures each implemented method on the current machine; the
+methods do not have identical allocation and serialization costs.
 
-## Current verification status
-
-The current Python implementation has been checked locally on Windows with
-Python 3.14.6:
-
-- `python -m pytest -q` — **41 tests passed**.
-- `python -m compileall -q .` — completed successfully.
-- The tests cover binary-order validation and round trips, ring-buffer
-  wraparound and spawned-process synchronization, matching behavior, and
-  producer/buffer/engine integration.
-
-These checks do not cover the optional Cython extension or establish benchmark
-guarantees. The Cython extension has not been built, and the HTML dashboard is
-not connected to live engine metrics.
-
-### Separate-process producer and consumer
-
-For a Windows PowerShell session using the same local IPC file, start the
-consumer in one terminal:
+The standalone firehose command is also available:
 
 ```powershell
-Set-Location <path-to-repository>\hft_engine
-python scripts/run_consumer.py --path C:\Temp\chronosmatch.rb --timeout 60
+python main.py firehose --duration 5 --target-ops 100000
 ```
 
-In a second terminal, start the producer with that same path:
+It produces orders without running a consumer, so the bounded ring buffer may
+fill and subsequent orders may be counted as dropped.
+
+## Separate producer and consumer processes
+
+The separate-process scripts demonstrate cooperating processes using the same
+ring-buffer file. Open two PowerShell terminals. In the first terminal, start
+the consumer:
 
 ```powershell
-Set-Location <path-to-repository>\hft_engine
-python scripts/run_producer.py --path C:\Temp\chronosmatch.rb --duration 10 --target-ops 50000
+Set-Location .\hft_engine
+$ipcPath = Join-Path $env:TEMP 'chronosmatch.rb'
+python scripts/run_consumer.py --path $ipcPath --timeout 60
 ```
 
-Replace `<path-to-repository>` with the actual repository path. The producer
-creates or truncates the ring-buffer file, so do not start a producer against a
-file containing data you need to preserve. The consumer exits after its
-configured idle timeout; it does not receive a dedicated producer shutdown
-message. Use `Ctrl+C` to stop it sooner.
+In the second terminal, start the producer with the same path:
 
-## Tests and checks
+```powershell
+Set-Location .\hft_engine
+$ipcPath = Join-Path $env:TEMP 'chronosmatch.rb'
+python scripts/run_producer.py --path $ipcPath --duration 10 --target-ops 50000
+```
 
-Run these from `hft_engine`:
+The consumer waits up to 10 seconds for the backing file to appear. It exits
+after its configured idle timeout; there is no dedicated producer-completion
+message. Use `Ctrl+C` to stop it sooner. The producer creates or truncates the
+file on startup, so do not point it at a file whose contents must be preserved.
+Both processes must use the same path and capacity.
+
+## Tests and verification
+
+Run these commands from `hft_engine`:
 
 ```powershell
 python -m pytest -q
@@ -115,38 +141,44 @@ python -m compileall -q .
 
 The tests cover:
 
-- BUY and SELL binary order round trips, field bounds, and malformed records.
-- Ring-buffer empty/full behavior, FIFO ordering, wraparound, malformed slots,
-  cleanup, and Windows spawned-process synchronization.
-- Best-price and FIFO matching, partial fills, residual orders, and invalid
-  submissions.
-- Producer-to-buffer-to-matching-engine integration, stop requests, and empty
-  or invalid metric inputs.
-- A regression check that the matching verification command returns a failing
-  process status if a check fails.
+- BUY and SELL serialization round trips, field constraints, and malformed
+  records.
+- Ring-buffer empty/full behavior, FIFO order, wraparound, malformed slots,
+  corrupt counters, resource closure, and spawned-process synchronization.
+- Best-price and FIFO matching, partial fills, residual quantities, non-crossing
+  orders, and invalid submissions.
+- Producer-to-buffer-to-matching-engine integration and metrics edge cases.
+- A regression check that the verification command returns a failure status
+  when a correctness check fails.
 
-The CLI matching verification is also available with `python main.py verify`.
-It reports a local 100,000-submission latency sample; its observed figures are
-measurements, not pass/fail performance thresholds.
+The project has a recorded local verification run on Windows with Python
+3.14.6: **41 tests passed**, and `python -m compileall -q .` completed
+successfully. This is a previously observed result, not a report of checks run
+for every checkout. Re-run the commands above to verify the current files.
+
+For command-by-command output expectations, see
+[expected-results.md](./expected-results.md).
 
 ## Project layout
 
 ```text
-ChronosMatch-Roadmap             Development plan and progress
+ChronosMatch-Roadmap             Development roadmap
+features.md                      Feature inventory and limitations
+expected-results.md              Expected command behavior
 hft_engine/
 ├── main.py                      Unified command-line interface
-├── requirements.txt             Runtime dependency pin
+├── requirements.txt             Runtime dependencies
 ├── requirements-dev.txt         Runtime dependencies plus pytest
 ├── core/
 │   ├── constants.py             Shared format and runtime defaults
 │   ├── order_struct.py          Order validation and binary serialization
 │   ├── ring_buffer.py           mmap-backed SPSC ring buffer
-│   ├── firehose.py              Async simulated order producer
-│   └── metrics.py               Latency and throughput counters
+│   ├── firehose.py              Asynchronous synthetic order producer
+│   └── metrics.py               Latency and rolling throughput metrics
 ├── engine/
 │   └── limit_order_book.py      Python price-time-priority matching engine
 ├── bench/
-│   ├── engine_verify.py         Matching checks and latency sampling
+│   ├── engine_verify.py         Matching checks and latency sample
 │   └── ipc_audit.py             Transport/serialization measurements
 ├── scripts/
 │   ├── run_demo.py              Integrated single-process demo
@@ -154,96 +186,92 @@ hft_engine/
 │   └── run_consumer.py          Separate-process consumer
 ├── tests/                       Pytest regression tests
 ├── ui/
-│   ├── dashboard.py             Live terminal dashboard
-│   └── web_dashboard.html       Standalone visual simulation
+│   ├── dashboard.py             Terminal dashboard
+│   └── web_dashboard.html       Standalone visual mock-up
 └── cython_src/
-    └── lob.pyx                  Experimental optional Cython LOB
+    └── lob.pyx                  Experimental optional Cython source
 ```
 
-## Architecture and limitations
+## Technical details and limitations
 
-### Binary orders
+### Order record
 
-Each order occupies 21 bytes using the `=QdIb` struct format:
+Each order is encoded in 21 bytes with struct format `=QdIb`:
 
 | Field | Encoding | Size |
 |---|---|---:|
 | `order_id` | Unsigned 64-bit integer | 8 bytes |
-| `price` | 64-bit floating-point number | 8 bytes |
+| `price` | 64-bit floating-point value | 8 bytes |
 | `quantity` | Unsigned 32-bit integer | 4 bytes |
 | `side` | Signed 8-bit integer (`+1` BUY, `-1` SELL) | 1 byte |
 
-Prices must be finite and positive, quantities must be positive and fit in
-their binary field, and identifiers must fit in an unsigned 64-bit field. The
-format uses native byte order, so files are intended for cooperating processes
-on the same host rather than as a portable network protocol.
+Prices must be finite and positive. Quantities must be positive and fit the
+unsigned 32-bit field; order identifiers must fit the unsigned 64-bit field.
+The `=` prefix uses native byte order with standard field sizes and no padding,
+so the record is intended for cooperating processes on the same host, not as a
+portable network protocol.
 
-### Ring buffer
+### Ring buffer and process model
 
-The mmap file has a 16-byte header followed by fixed-width order slots. `put`
-returns `False` if the buffer is full; `get` returns `None` if it is empty. Calls
-serialize access using a thread lock and an OS-level lock for cooperating
-processes (a named mutex on Windows and `flock` on POSIX). Participants must use
-the same backing path and capacity. The intended configuration is one producer
-and one consumer.
+The mapped file has a 16-byte header followed by fixed-width order slots.
+`put(order)` returns `False` when full, and `get()` returns `None` when empty.
+Calls may wait to acquire synchronization locks even though queue operations
+do not wait for space or data. A thread lock protects access within one process;
+Windows uses a named OS mutex and POSIX uses `flock` for cooperating processes.
+The intended topology is one producer and one consumer, using the same backing
+path and capacity.
 
 ### Matching and measurement
 
-The Python limit order book matches at the resting order’s price, prioritizes
-the best available price, and preserves FIFO order at equal prices. Partial
-fills leave the remaining quantity on the book. Benchmark results depend on
-Python, platform, workload, and system load; compare runs only under similar
-conditions. The transport benchmark methods do not have identical allocation
-costs and do not demonstrate that mmap is faster or that the complete pipeline
-avoids copying.
+The matching engine uses best-price priority and FIFO order at equal prices.
+Trades execute at the resting order's price; a partial fill leaves the
+unmatched quantity on the book. Benchmark values depend on the interpreter,
+platform, workload, and system load. Compare only measurements gathered under
+similar conditions. The audit methods have different costs and do not prove
+that the complete pipeline avoids copying or that one method is always faster.
 
-### Dashboards and optional extension
+### Dashboards and optional Cython
 
-- `ui\dashboard.py` displays current in-process demo metrics in the terminal.
-- `ui\web_dashboard.html` is a browser-only visual mock-up: its generated
-  prices, trades, and latency values are not connected to the Python engine.
+- `ui\dashboard.py` displays in-process simulation metrics in an ANSI terminal.
+- `ui\web_dashboard.html` is a standalone browser mock-up with generated values;
+  it is not connected to the Python engine or its live metrics.
 - `cython_src\lob.pyx` is experimental, is not used by the Python CLI, and has
   not been built or validated with Python 3.14.6. No Cython performance claim
   is made.
 
 ## Troubleshooting
 
-- **Import error:** Confirm the current directory is `hft_engine`, activate
-  `.venv`, and install `..\hft_engine\requirements-dev.txt` from the repository
-  root (or `requirements-dev.txt` when inside `hft_engine`).
-- **Unexpected Python version:** Check `python --version` and select the Python
-  3.14.6 `.venv` interpreter in VS Code.
-- **Consumer cannot find the ring file:** Start the consumer with the exact
-  path passed to the producer. The consumer waits up to 10 seconds for the
-  file to be created.
-- **Stale or incompatible ring file:** Stop both processes. The producer
-  initializes the file and resets its contents when it starts.
-- **Optional Cython build fails:** Cython and a compatible native compiler are
-  required; the extension is optional and is not needed for the Python CLI.
+- **Import errors:** Run commands from `hft_engine`, activate the project
+  environment, and install `requirements-dev.txt` from the repository root.
+- **Wrong Python version:** Check `python --version` and select a Python 3.14.6
+  interpreter before creating or using `.venv`.
+- **Consumer cannot find the backing file:** Start the consumer and producer
+  with exactly the same path. The consumer waits up to 10 seconds for the file
+  to be created.
+- **Stale IPC file or interrupted run:** Stop both processes. The producer
+  recreates and truncates its backing file when started; make sure no other
+  process still needs that file.
+- **Dashboard or demo interrupted:** The integrated demo and terminal
+  dashboard request producer shutdown, drain pending orders where applicable,
+  join worker threads, and close the mapped file.
+- **Cython build issue:** The extension is optional. A Cython installation
+  and compatible native compiler are required to experiment with it; neither
+  is needed for the Python CLI.
 
-## Development progress
+## Roadmap and status
 
-The project roadmap tracks planned and completed work. Do not infer that a
-commit or task happened on a particular date from the week labels. Update
-progress based on work and validation actually performed; do not backdate
-commits or present local benchmark readings as guaranteed results.
+[ChronosMatch-Roadmap](./ChronosMatch-Roadmap) describes planned work by
+development phase. Week labels are planning milestones, not verified dates or
+commit history. Treat the test result above as the recorded verification
+evidence; roadmap entries should be updated only when work and checks have
+actually been completed.
 
-See [ChronosMatch-Roadmap](./ChronosMatch-Roadmap) for the current plan.
+## Security and project scope
 
-## Security and data
-
-- Do not commit access tokens, credentials, private keys, or local `.env` files.
-- Use simulated orders; this project does not connect to an exchange or perform
-  real trades.
-- Review the staged file list before committing, especially local configuration
-  and generated artifacts.
-
-## Author
-
-**Kommavarapu Kameswari Sreevalli**  
-GitHub: [@Sreevalli20](https://github.com/Sreevalli20)
-
-## License
-
-No license is currently specified. Add a license before redistributing this
-project under particular reuse terms.
+- Use synthetic orders only. The project does not route real orders or connect
+  to an exchange.
+- Do not commit credentials, private keys, local `.env` files, or other secrets.
+- Review staged files before committing, including local configuration and
+  generated artifacts.
+- No license is currently specified. Add an appropriate license before
+  redistributing the project under particular reuse terms.
