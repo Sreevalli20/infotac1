@@ -32,13 +32,15 @@ features and known boundaries.
 
 ## Requirements
 
-- Python **3.14.6** is the documented and previously tested version.
+- Python **3.14.6**. The current workspace was verified with this version.
 - `pip`.
-- Windows PowerShell (commands below use PowerShell syntax).
+- Windows PowerShell for the commands below.
 
-Runtime dependencies are pinned in `hft_engine\requirements.txt`. The
-development requirements include pytest. The experimental Cython source is
-optional and is not needed to use the Python application.
+The runtime dependency is `sortedcontainers==2.4.0`, pinned in
+`hft_engine\requirements.txt`. `hft_engine\requirements-dev.txt` includes that
+runtime requirement and `pytest==9.1.1` for the regression suite. The
+experimental Cython source is optional and is not needed to run the Python
+application.
 
 ## Setup
 
@@ -151,10 +153,15 @@ The tests cover:
 - A regression check that the verification command returns a failure status
   when a correctness check fails.
 
-The project has a recorded local verification run on Windows with Python
-3.14.6: **41 tests passed**, and `python -m compileall -q .` completed
-successfully. This is a previously observed result, not a report of checks run
-for every checkout. Re-run the commands above to verify the current files.
+Latest local verification in this workspace:
+
+- `python --version` — `Python 3.14.6`.
+- `python -m pytest -q` — **41 passed**.
+- `python -m compileall -q .` — completed successfully.
+
+These results are from the current checkout at the time of this update. Re-run
+the commands above after changing code or dependencies to verify the resulting
+files.
 
 For command-by-command output expectations, see
 [expected-results.md](./expected-results.md).
