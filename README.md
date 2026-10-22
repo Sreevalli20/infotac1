@@ -153,15 +153,22 @@ The tests cover:
 - A regression check that the verification command returns a failure status
   when a correctness check fails.
 
-Latest local verification in this workspace:
+Latest local verification in this workspace used Windows 11 and Python
+3.14.6:
 
-- `python --version` — `Python 3.14.6`.
 - `python -m pytest -q` — **41 passed**.
 - `python -m compileall -q .` — completed successfully.
+- `python main.py struct-test` and `python main.py ring-test` — both completed
+  and printed their `PASS` messages.
+- `python main.py verify` — all matching correctness checks passed, including
+  the completed-submission latency sample.
+- `python scripts/run_demo.py --duration 2 --target-ops 50000` — completed;
+  the run processed all successfully enqueued orders and reported no drops.
 
-These results are from the current checkout at the time of this update. Re-run
-the commands above after changing code or dependencies to verify the resulting
-files.
+These are results observed from the current checkout during this update.
+Re-run the commands after changing code or dependencies to verify the resulting
+files. Runtime measurements and generated order counts vary and are not
+performance guarantees.
 
 For command-by-command output expectations, see
 [expected-results.md](./expected-results.md).
