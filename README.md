@@ -12,6 +12,19 @@ buffer and reconstructed as Python objects by the consumer. This is not a live
 trading system, does not connect to an exchange, and provides no production or
 latency guarantees.
 
+## Current status
+
+The current project checkout was validated on Windows 11 with Python 3.14.6:
+
+- `python -m pytest -q` — **41 passed**.
+- `python -m compileall -q .` — completed successfully.
+- `python main.py struct-test` and `python main.py ring-test` — both passed.
+- `python main.py verify` — all matching checks passed.
+- `python scripts/run_demo.py --duration 2 --target-ops 50000` — completed
+  without dropped orders in the observed run.
+
+These are measured results from the present workspace and can vary between runs.
+
 ## Features
 
 - Validated BUY and SELL order model and fixed-width binary serialization.
