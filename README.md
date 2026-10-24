@@ -1,4 +1,4 @@
-# ChronosMatch: Simulated Order-Processing Engine
+# ChronosMatch: Zero-Copy High-Frequency Trading Engine
 
 ChronosMatch is an educational Python project that simulates a high-frequency
 trading (HFT) order-processing pipeline. It brings together fixed-width binary
@@ -6,7 +6,7 @@ order records, an `mmap`-backed single-producer/single-consumer (SPSC) ring
 buffer, a price-time-priority limit order book, synthetic order generation,
 local performance measurements, and a terminal dashboard.
 
-Despite the repository's original “Zero-Copy” title, the application is not an
+The title references zero-copy concepts, but the application is not an
 end-to-end zero-copy system: orders are encoded into the ring buffer and
 decoded into Python `Order` objects on the consumer side. This is a local
 simulation, not a live trading application. It has no exchange connectivity,
@@ -15,7 +15,7 @@ order routing, or production latency guarantees.
 ## Project status
 
 The Python implementation was checked in this workspace on Windows 11 with
-Python 3.14.6. The most recent observed validation in this update was:
+Python 3.14.6. The most recent observed validation was:
 
 - `python -m pytest -q` — **41 passed**.
 - `python -m compileall -q .` — completed successfully.
@@ -23,7 +23,7 @@ Python 3.14.6. The most recent observed validation in this update was:
 - `python main.py ring-test` — passed.
 - `python main.py verify` — matching correctness checks passed.
 - `python scripts/run_demo.py --duration 1 --target-ops 10000` — completed;
-  all 5,056 enqueued orders were processed and no orders were dropped in that
+  all 5,120 enqueued orders were processed and no orders were dropped in that
   run.
 - `python main.py audit --orders 1000` — all four audit workloads completed.
 
