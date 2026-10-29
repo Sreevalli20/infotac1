@@ -14,7 +14,7 @@ order routing, or production latency guarantees.
 
 ## Project status
 
-The Python implementation was checked on 2026-10-28 in this workspace on
+The Python implementation was checked on 2026-10-29 in this workspace on
 Windows 11 with Python 3.14.6. The observed validation was:
 
 - `python -m pytest -q` — **41 passed**.
@@ -23,7 +23,7 @@ Windows 11 with Python 3.14.6. The observed validation was:
 - `python main.py ring-test` — passed.
 - `python main.py verify` — matching correctness checks passed.
 - `python scripts/run_demo.py --duration 1 --target-ops 10000` — completed;
-  all 4,672 enqueued orders were processed and no orders were dropped in that
+  all 4,544 enqueued orders were processed and no orders were dropped in that
   run.
 - `python main.py audit --orders 1000` — all four audit workloads completed.
 
